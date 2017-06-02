@@ -41,18 +41,9 @@
 
 <script>
 import constData from './assets/data'
+import * as helper from './helper'
 
-let data = constData;
-
-data = data.map((level) => {
-
-  level.poems = level.poems.map((poem) => {
-    poem.isSelect = false;
-    return poem;
-  });
-
-  return level;
-});
+let data = helper.format(constData);
 
 export default {
   data() {
@@ -85,16 +76,62 @@ export default {
     }
   },
   methods: {
+    _getPoemQuest(poem, options) {
+      let i = 1;
+      const seed = Math.random();
+      const step = 1 / poem.sentences.length;
+
+      for(const sentence of poem.sentences) {
+        const willUse = step * i > seed;
+
+        // willUse是随机数选取当前句子是否被用
+        if(willUse) {
+          switch (options.dir) {
+            case 'front': {
+              const blank = sentence[0].replace(/[\u4e00-\u9fa5]/g, '___');
+              const quest = [blank, sentence[1]].join('，');
+              return `${quest}。`;
+            }
+
+            case 'back':{
+              const blank = sentence[1].replace(/[\u4e00-\u9fa5]/g, '___');
+              const quest = [sentence[0], blank].join('，');
+              return `${quest}。`;
+            }
+          }
+        }
+        i++;
+      }
+    },
     generate(type) {
+      let options = {};
+      switch(type) {
+        case 'front':
+          options.maxSentenceLength = 2;
+          options.dir = 'front';
+          break;
+        case 'back':
+          options.maxSentenceLength = 2;
+          options.dir = 'back';
+          break;
+        case 'mixin':
+          options.maxSentenceLength = Infinity;
+          options.dir = 'mixin';
+          return;
+      }
+
       for(const poem of this.poems) {
         const isPoemUsed = this.result.some(result => result.name === poem.name);
-        const isNewInsert = this.result.every(result => result.name !== poem.name);
-//        const isPoemSuitable = poem;
+//        const willUse = poem.isSelect ? true : Math.random() > 0.5;
+        const willUse = poem.isSelect;
 
-        if(poem.isSelect === true && !isPoemUsed) {
-//          const quest = poem.content;
-          this.result.push({...poem, quest: poem.content});
-          if(isNewInsert) return;
+        // 判断是否需要选择该古诗，如果古诗已被选用则跳过
+        if(!isPoemUsed && willUse) {
+          this.result.push({
+            ...poem,
+            quest: this._getPoemQuest(poem, options)
+          });
+          break;
         }
       }
     },
