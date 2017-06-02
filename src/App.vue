@@ -93,6 +93,7 @@ export default {
         if(poem.isSelect === true && !isPoemUsed) {
 //          const quest = poem.content;
           this.result.push({...poem, quest: poem.content});
+          return;
         }
       }
     },
