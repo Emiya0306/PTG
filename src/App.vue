@@ -88,12 +88,13 @@ export default {
     generate(type) {
       for(const poem of this.poems) {
         const isPoemUsed = this.result.some(result => result.name === poem.name);
+        const isNewInsert = this.result.every(result => result.name !== poem.name);
 //        const isPoemSuitable = poem;
 
         if(poem.isSelect === true && !isPoemUsed) {
 //          const quest = poem.content;
           this.result.push({...poem, quest: poem.content});
-          return;
+          if(isNewInsert) return;
         }
       }
     },
