@@ -12,11 +12,53 @@
           </div>
 
           <div class="box-body">
+            <h4 v-if="level.poems && level.poems.length">古诗：</h4>
             <div v-for="poem in level.poems">
               <label>
                 <input type="checkbox" v-model="poem.isSelect">
                 <span>{{poem.name}}</span>
               </label>
+            </div>
+
+            <h4 v-if="level.articles && level.articles.length">古文：</h4>
+            <div v-for="article in level.articles">
+              <label>
+                <input type="checkbox" v-model="article.isSelect">
+                <span>{{article.name}}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="box box-default">
+          <div class="box-header with-border">
+            <h3 class="box-title">编辑：</h3>
+          </div>
+
+          <div class="box-body">
+            <button class="btn btn-block btn-primary btn-flat" @click="generateRandomPoem('front')">
+              随机抽取前句填充古诗
+            </button>
+            <button class="btn btn-block btn-primary btn-flat" @click="generateRandomPoem('back')">
+              随机抽取后句填充古诗
+            </button>
+            <button class="btn btn-block btn-primary btn-flat" @click="generateRandomArticle()">
+              随机抽取填充古文
+            </button>
+            <button class="btn btn-block btn-success btn-flat" @click="generatePaper()">
+              自动生成考卷
+            </button>
+            <button class="btn btn-block btn-danger btn-flat" @click="clear()">
+              清空
+            </button>
+
+            <div v-for="result in results" class="Editor">
+              <div class="Editor__content">
+                {{result.quest}}
+              </div>
+              <div class="Editor__button">
+                <button>刷新</button>
+              </div>
             </div>
           </div>
         </div>
@@ -28,10 +70,6 @@
 
           <div class="box-body">
             <textarea class="Result" v-model="output"></textarea>
-            <button @click="generate('front')">生成前句填充</button>
-            <button @click="generate('back')">生成后句填充</button>
-            <button @click="generate('mixin')">生成混合填充</button>
-            <button @click="clear()">清空</button>
           </div>
         </div>
       </div>
@@ -49,10 +87,24 @@ export default {
   data() {
     return {
       data,
-      result: []
+      results: []
     }
   },
   computed: {
+    articles() {
+      let articles = [];
+
+      for(const level of this.data) {
+        if(level.articles) {
+          for(const article of level.articles) {
+            articles.push(article);
+          }
+        }
+      }
+
+      return articles;
+    },
+
     poems() {
       let poems = [];
 
@@ -68,7 +120,7 @@ export default {
     output() {
       let output = '';
 
-      for(const poem of this.result) {
+      for(const poem of this.results) {
         output += `${poem.quest}\r\n`;
       }
 
@@ -76,26 +128,30 @@ export default {
     }
   },
   methods: {
-    _getPoemQuest(poem, options) {
+    _getPoemQuest(poem, type) {
       let i = 1;
       const seed = Math.random();
       const step = 1 / poem.sentences.length;
 
       for(const sentence of poem.sentences) {
-        const willUse = step * i > seed;
+        const willUse = step * i > seed && step * (i - 1) < seed;
 
         // willUse是随机数选取当前句子是否被用
         if(willUse) {
-          switch (options.dir) {
+          switch (type) {
             case 'front': {
-              const blank = sentence[0].replace(/[\u4e00-\u9fa5]/g, '___');
-              const quest = [blank, sentence[1]].join('，');
+              const index = 0;
+              const blank = sentence[index].replace(/[\u4e00-\u9fa5]/g, '___');
+              const sentenceWithoutHead = sentence.slice(1, sentence.length);
+              const quest = [blank, ...sentenceWithoutHead].join('，');
               return `${quest}。`;
             }
 
             case 'back':{
-              const blank = sentence[1].replace(/[\u4e00-\u9fa5]/g, '___');
-              const quest = [sentence[0], blank].join('，');
+              const index = sentence.length - 1;
+              const blank = sentence[index].replace(/[\u4e00-\u9fa5]/g, '___');
+              const sentenceWithoutEnd = sentence.slice(0, sentence.length - 1);
+              const quest = [...sentenceWithoutEnd, blank].join('，');
               return `${quest}。`;
             }
           }
@@ -103,41 +159,98 @@ export default {
         i++;
       }
     },
-    generate(type) {
-      let options = {};
-      switch(type) {
-        case 'front':
-          options.maxSentenceLength = 2;
-          options.dir = 'front';
-          break;
-        case 'back':
-          options.maxSentenceLength = 2;
-          options.dir = 'back';
-          break;
-        case 'mixin':
-          options.maxSentenceLength = Infinity;
-          options.dir = 'mixin';
-          return;
-      }
 
-      for(const poem of this.poems) {
-        const isPoemUsed = this.result.some(result => result.name === poem.name);
-//        const willUse = poem.isSelect ? true : Math.random() > 0.5;
-        const willUse = poem.isSelect;
+    generateRandomPoem(type) {
+      // 计数器
+      let i = 1;
 
-        // 判断是否需要选择该古诗，如果古诗已被选用则跳过
-        if(!isPoemUsed && willUse) {
-          this.result.push({
+      // 随机数种子
+      const seed = Math.random();
+
+      // 筛选出没有被用过，并且在选择范围内的古诗
+      const selectedPoems = this.poems.filter(
+        poem =>
+          poem.isSelect &&
+          !this.results.some(result => result.name === poem.name)
+      );
+
+      // 随机数范围阶数
+      const step = 1 / selectedPoems.length;
+
+      for(const poem of selectedPoems) {
+        const willUse = step * i > seed && step * (i - 1) < seed;
+
+        if(willUse) {
+          this.results.push({
             ...poem,
-            quest: this._getPoemQuest(poem, options)
+            quest: this._getPoemQuest(poem, type)
           });
           break;
         }
+
+        i++;
+      }
+    },
+
+    _getArticleQuest(article) {
+      let i = 1;
+      const articleSentences = [];
+      article.quest = article.content;
+
+      for(const sentence of article.sentences) {
+        for(const block of sentence) {
+          articleSentences.push(block);
+        }
+      }
+
+      for(const sentence of articleSentences) {
+        const willUse = Math.random() > 0.5;
+
+        // willUse是随机数选取当前句子是否被用
+        if(willUse) {
+          const blank = sentence.replace(/[\u4e00-\u9fa5]/g, '___');
+          article.quest = article.quest.replace(sentence, blank);
+        }
+        i++;
+      }
+
+      return article.quest;
+    },
+
+    generateRandomArticle() {
+      // 计数器
+      let i = 1;
+
+      // 随机数种子
+      const seed = Math.random();
+
+      // 筛选出没有被用过，并且在选择范围内的古文
+      const selectedArticles = this.articles.filter(
+        article =>
+        article.isSelect &&
+        !this.results.some(result => result.name === article.name)
+      );
+
+      // 随机数范围阶数
+      const step = 1 / selectedArticles.length;
+
+      for(const article of selectedArticles) {
+        const willUse = step * i > seed && step * (i - 1) < seed;
+
+        if(willUse) {
+          this.results.push({
+            ...article,
+            quest: this._getArticleQuest(article)
+          });
+          break;
+        }
+
+        i++;
       }
     },
 
     clear() {
-      this.result = [];
+      this.results = [];
     }
   }
 }
@@ -152,5 +265,34 @@ export default {
   .Result {
     width: 100%;
     height: 300px;
+  }
+  .btn.btn-block {
+    display: inline;
+    width: auto;
+    margin-top: 0;
+  }
+
+  .Editor {
+    display: table;
+    padding: 10px 0;
+    width: 100%;
+    border-bottom: 1px solid #cccccc;
+  }
+
+  .Editor:last-child {
+    border-bottom: 0;
+  }
+
+  .Editor__content {
+    width: 80%;
+    display: table-cell;
+    vertical-align: middle;
+  }
+
+  .Editor__button {
+    width: 20%;
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
   }
 </style>
