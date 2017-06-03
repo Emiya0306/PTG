@@ -1,6 +1,5 @@
 export default [
   {
-    level: 0,
     name: '七年级第一学期',
     poems: [
       {
@@ -26,7 +25,6 @@ export default [
     ]
   },
   {
-    level: 1,
     name: '七年级第二学期',
     poems: [
       {
